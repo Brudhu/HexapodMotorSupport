@@ -40,7 +40,8 @@ struct Hexapodcontroller
 
 
 /* Function prototypes. */
-extern RTN_STATUS HexapodSetup(int);
+extern RTN_STATUS HexapodSetup(int, int);
 extern RTN_STATUS HexapodConfig(int, const char *, int);
+extern RTN_STATUS MotorNameConfig(int, const char *);
 
 #endif // DRVHEXAPOD_H

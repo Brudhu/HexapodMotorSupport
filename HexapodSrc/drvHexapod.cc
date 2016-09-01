@@ -31,9 +31,9 @@ static inline void Debug(int level, const char *format, ...) {
 
 /* --- Local data. --- */
 int Hexapod_num_cards = 0;
-static char *Hexapod_axis[] = {"H850X", "H850Y", "H850Z", "H850A", "H850B", "H850C",
-			      "HP140X", "HP140Y", "HP140Z", "HP140A", "HP140B", "HP140C",
-			      "DUALX", "DUALY", "DUALZ", "DUALA", "DUALB", "DUALC"};
+int current_num_axis = 0;
+char **Hexapod_axis = NULL;
+
 
 /* Local data required for every driver; see "motordrvComCode.h" */
 #include "motordrvComCode.h"
@@ -192,6 +192,14 @@ static int set_status(int card, int signal)
     recv_mess(card, buff, FLUSH);
 
     readOK = false;
+    /*printf("Hexapod_axis[signal]: %s\n", Hexapod_axis[signal]);
+    if(strcmp(Hexapod_axis[signal], "DUAL") == 0)
+    {
+	printf("String DUAL is wrong... trying to change it...");
+	Hexapod_axis[signal] = "DUALX";
+	printf("New string: %s", Hexapod_axis[signal]);
+    }*/
+
     send_mess(card, READ_STATUS, Hexapod_axis[signal]);
     if (recv_mess(card, buff, 1) && sscanf(buff, "%d", &status_word))
     {
@@ -410,11 +418,14 @@ static int recv_mess(int card, char *com, int flag)
 /* Setup system configuration                        */
 /* HexapodSetup()                                    */
 /*****************************************************/
-RTN_STATUS HexapodSetup(int scan_rate)  /* polling rate - 1/60 sec units.  */
+RTN_STATUS HexapodSetup(int num_cards, int scan_rate)  /* polling rate - 1/60 sec units.  */
 {
     int itera;
 
-    Hexapod_num_cards = HEXAPOD_NUM_CARDS;
+    if (num_cards < 1 || num_cards > HEXAPOD_NUM_CARDS)
+	Hexapod_num_cards = HEXAPOD_NUM_CARDS;
+    else
+	Hexapod_num_cards = num_cards;
 
     /* Set motor polling task rate */
     if (scan_rate >= 1 && scan_rate <= 60)
@@ -431,6 +442,8 @@ RTN_STATUS HexapodSetup(int scan_rate)  /* polling rate - 1/60 sec units.  */
 
     for (itera = 0; itera < Hexapod_num_cards; itera++)
         motor_state[itera] = (struct controller *) NULL;
+
+    Hexapod_axis = (char**)realloc(Hexapod_axis, (num_cards + 1)*sizeof(*Hexapod_axis));
 
     return(OK);
 }
@@ -459,6 +472,27 @@ HexapodConfig(int card,	     /* card being configured */
     return(OK);
 }
 
+/*****************************************************/
+/* Configure a motor name                            */
+/* MotorNameConfig()                                 */
+/*****************************************************/
+RTN_STATUS
+MotorNameConfig(int card,	 /* card being configured */
+             const char *name)	 /* motor name */
+{
+    Hexapod_axis[card] = (char*)malloc(sizeof(name));
+    strcpy(Hexapod_axis[card], name);
+    current_num_axis++;
+    if(current_num_axis == Hexapod_num_cards)
+    {
+	// All the axis were named. Now we can create the thread.
+	Hexapod_access.axis_names = Hexapod_axis;
+	epicsThreadCreate((char *) "Hexapod_motor", epicsThreadPriorityMedium,
+                      epicsThreadGetStackSize(epicsThreadStackMedium),
+                      (EPICSTHREADFUNC) motor_task, (void *) &targs);     
+    }
+    return(OK);
+}
 
 /*****************************************************/
 /* initialize all software and hardware		     */
@@ -569,9 +603,9 @@ static int motor_init()
     free_list.head = (struct mess_node *) NULL;
     free_list.tail = (struct mess_node *) NULL;
 
-    epicsThreadCreate((char *) "Hexapod_motor", epicsThreadPriorityMedium,
-                      epicsThreadGetStackSize(epicsThreadStackMedium),
-                      (EPICSTHREADFUNC) motor_task, (void *) &targs);
+//    epicsThreadCreate((char *) "Hexapod_motor", epicsThreadPriorityMedium,
+//                      epicsThreadGetStackSize(epicsThreadStackMedium),
+//                      (EPICSTHREADFUNC) motor_task, (void *) &targs);
 
     return(OK);
 }
