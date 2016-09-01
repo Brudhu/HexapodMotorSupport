@@ -12,7 +12,7 @@
 #define READ_HLS        "# HLS"     /* Read High Limit Switch */
 
 #define HEXAPOD_NUM_CARDS   1
-#define MAX_AXES            12
+#define MAX_AXES            18
 #define BUFF_SIZE           100		/* Maximum length of string to/from Hexapod */
 
 /*----------debugging---------*/
@@ -32,7 +32,8 @@ static inline void Debug(int level, const char *format, ...) {
 /* --- Local data. --- */
 int Hexapod_num_cards = 0;
 static char *Hexapod_axis[] = {"H850X", "H850Y", "H850Z", "H850A", "H850B", "H850C",
-			      "HP140X", "HP140Y", "HP140Z", "HP140A", "HP140B", "HP140C"};
+			      "HP140X", "HP140Y", "HP140Z", "HP140A", "HP140B", "HP140C",
+			      "DUALX", "DUALY", "DUALZ", "DUALA", "DUALB", "DUALC"};
 
 /* Local data required for every driver; see "motordrvComCode.h" */
 #include "motordrvComCode.h"
