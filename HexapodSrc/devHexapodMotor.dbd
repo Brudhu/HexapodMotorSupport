@@ -1,6 +1,0 @@
-# Hexapod driver support.
-device(motor,VME_IO,devHexapod,"Hexapod")
-driver(drvHexapod)
-registrar(HexapodmotorRegister)
-variable(drvHexapoddebug)
-
