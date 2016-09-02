@@ -311,7 +311,7 @@ asynStatus HexapodAxis::setClosedLoop(bool closedLoop)
   * \param[out] moving A flag that is set indicating that the axis is moving (1) or done (0). */
 asynStatus HexapodAxis::poll(bool *moving)
 { 
-  int homed, done, driveOn, limit, msta, gain_supp;
+  int homed, done, driveOn, limit, msta, gain_supp, mov;
   asynStatus comStatus;
 
 
@@ -353,7 +353,7 @@ asynStatus HexapodAxis::poll(bool *moving)
   homed     = (msta & STATUS_HOMED)     > 0 ? 1 : 0;
   gain_supp = (msta & STATUS_GAIN_SUPP) > 0 ? 1 : 0;
   driveOn   = (msta & STATUS_GAIN_SUPP) > 0 ? 1 : 0;
-  *moving   = (msta & STATUS_MOVING)    > 0 ? 1 : 0;
+  mov       = (msta & STATUS_MOVING)    > 0 ? 1 : 0;
 
   // Read the drive power on status
   setIntegerParam(pC_->motorStatusAtHome_, limit);
@@ -361,6 +361,7 @@ asynStatus HexapodAxis::poll(bool *moving)
   setIntegerParam(pC_->motorStatusHomed_, homed);
   setIntegerParam(pC_->motorStatusGainSupport_, gain_supp);
   setIntegerParam(pC_->motorStatusPowerOn_, driveOn);
+  setIntegerParam(pC_->motorStatusMoving_, mov);
   setIntegerParam(pC_->motorStatusProblem_, 0);
 
   skip:
