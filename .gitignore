@@ -1,3 +1,5 @@
+O.linux-x86_64
+O.Common
 O.*
 *.d
 *.o

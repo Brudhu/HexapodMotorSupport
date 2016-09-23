@@ -26,6 +26,7 @@ March 4, 2011
 /* --- Local data. --- */
 int current_num_axis = 0;
 char **Hexapod_axis = NULL;
+unsigned char *Hexapod_axis_auto_off = NULL;
 
 static const char *driverName = "HexapodMotorDriver";
 
@@ -60,10 +61,12 @@ HexapodController::HexapodController(const char *portName, const char *HexapodPo
   // Wait a short while so that any responses to the above commands have time to arrive so we can flush
   // them in the next writeReadController()
   epicsThreadSleep(0.5);
+
   // Create the axis objects
   for (axis=0; axis<numAxes; axis++) {
     new HexapodAxis(this, axis);
   }
+
 
   startPoller(movingPollPeriod, idlePollPeriod, 2);
 }
@@ -96,6 +99,26 @@ MotorNameConfig(int card,        /* motor number being configured */
     Hexapod_axis = (char**)realloc(Hexapod_axis, (current_num_axis + 1)*sizeof(*Hexapod_axis));
     Hexapod_axis[card] = (char*)malloc(sizeof(name));
     strcpy(Hexapod_axis[card], name);
+    return(asynSuccess);
+}
+
+
+/*****************************************************/
+/* Configure a motor auto off setting                */
+/* MotorAutoOffConfig()                              */
+/*****************************************************/
+extern "C" int
+MotorAutoOffConfig(int card,        /* motor number being configured */
+             const unsigned char autoOff)   /* Auto off setting */
+{
+    // setup size of auto off config array
+    if(!Hexapod_axis_auto_off)
+    {
+      Hexapod_axis_auto_off = (unsigned char*)realloc(Hexapod_axis_auto_off, (current_num_axis + 1) * sizeof(unsigned char));
+      for(int i = 0; i < current_num_axis; ++i)
+        Hexapod_axis_auto_off[i] = 0;
+    }
+    Hexapod_axis_auto_off[card] = autoOff;
     return(asynSuccess);
 }
 
@@ -230,6 +253,8 @@ HexapodAxis::HexapodAxis(HexapodController *pC, int axisNo)
   asynStatus status;
 
   sprintf(axisName_, "%s", Hexapod_axis[axisNo]);
+  if(Hexapod_axis_auto_off)
+    axisAutoOff_ = Hexapod_axis_auto_off[axisNo];
   pulsesPerUnit_ = 0.001;
   setIntegerParam(pC_->motorStatusHasEncoder_, 1);
   callParamCallbacks();
@@ -355,6 +380,16 @@ asynStatus HexapodAxis::poll(bool *moving)
   driveOn   = (msta & STATUS_GAIN_SUPP) > 0 ? 1 : 0;
   mov       = (msta & STATUS_MOVING)    > 0 ? 1 : 0;
 
+  // Send the MotorOff command if this motor is set to auto_off and moving == 0
+  if(axisAutoOff_ == 1 && mov == 0)
+  {
+    if(autoOffRetries_ == 10)
+      setClosedLoop(0);
+    autoOffRetries_++;
+  }
+  else if (mov == 1)
+    autoOffRetries_ = 0;
+
   // Read the drive power on status
   setIntegerParam(pC_->motorStatusAtHome_, limit);
   setIntegerParam(pC_->motorStatusDone_, done);
@@ -386,10 +421,14 @@ static const iocshFuncDef HexapodCreateControllerDef = {"HexapodCreateController
 // Motor Name Config arguments
 static const iocshArg motorArg0 = {"Motor number", iocshArgInt};
 static const iocshArg motorArg1 = {"Motor name", iocshArgString};
-
 static const iocshArg * const MotorNameConfigArgs[2]  = {&motorArg0, &motorArg1};
-
 static const iocshFuncDef configMotorName = {"MotorNameConfig", 2, MotorNameConfigArgs};
+
+// Motor auto_off config
+static const iocshArg motorAutoOffArg0 = {"Motor number", iocshArgInt};
+static const iocshArg motorAutoOffArg1 = {"Auto off", iocshArgInt};
+static const iocshArg * const MotorAutoOffConfigArgs[2]  = {&motorAutoOffArg0, &motorAutoOffArg1};
+static const iocshFuncDef configMotorAutoOff = {"MotorAutoOffConfig", 2, MotorAutoOffConfigArgs};
 
 static void HexapodCreateContollerCallFunc(const iocshArgBuf *args)
 {
@@ -401,10 +440,16 @@ static void configMotorNameCallFunc(const iocshArgBuf *args)
   MotorNameConfig(args[0].ival, args[1].sval);
 }
 
+static void configMotorAutoOffCallFunc(const iocshArgBuf *args)
+{
+  MotorAutoOffConfig(args[0].ival, args[1].ival);
+}
+
 static void HexapodMotorRegister(void)
 {
   iocshRegister(&HexapodCreateControllerDef, HexapodCreateContollerCallFunc);
   iocshRegister(&configMotorName, configMotorNameCallFunc);
+  iocshRegister(&configMotorAutoOff, configMotorAutoOffCallFunc);
 }
 
 extern "C" {

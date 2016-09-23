@@ -50,6 +50,8 @@ private:
   HexapodController *pC_;      /**< Pointer to the asynMotorController to which this axis belongs.
                                 *   Abbreviated because it is used very frequently */
   char axisName_[10];      /**< Name of each axis, used in commands to Hexapod controller */ 
+  unsigned char axisAutoOff_ = 0;      /**< AutoOff of each axis */ 
+  int autoOffRetries_ = 0;           /**< AutoOffRetries */ 
   double pulsesPerUnit_;   /**< Pulses per engineering unit, which is what Hexapod controller uses */ 
   int flagsReg_;           /**< Address of the flags register */ 
   int limitsReg_;          /**< Address of the limits register */ 
